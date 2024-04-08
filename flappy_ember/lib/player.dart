@@ -12,12 +12,13 @@ class Player extends SpriteAnimationComponent
   Player() : super(position: Vector2.all(100), size: Vector2.all(50));
 
   final velocity = Vector2(0, 150);
+  bool perdido = false;
 
   @override
   Future<void> onLoad() async {
     String imagePath = _getImagePathForColor(color);
     animation = await SpriteAnimation.load(
-      'ember.png',
+      imagePath,
       SpriteAnimationData.sequenced(
         amount: 4,
         textureSize: Vector2.all(16),
@@ -66,7 +67,9 @@ class Player extends SpriteAnimationComponent
   @override
   void onCollisionStart(Set<Vector2> _, PositionComponent other) {
     super.onCollisionStart(_, other);
+    perdido = true;
     gameRef.pauseEngine();
+    onLose();
   }
 
   void fly() {
@@ -80,4 +83,10 @@ class Player extends SpriteAnimationComponent
       ),
     );
   }
+
+  void onLose() {
+    gameRef.overlays.add('rankingOverlay');
+  }
+
+  
 }

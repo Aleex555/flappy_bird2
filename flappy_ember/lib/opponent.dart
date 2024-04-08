@@ -4,22 +4,19 @@ import 'package:flutter/material.dart';
 
 class Opponent extends SpriteAnimationComponent {
   final String id;
+  // Color inicial, puedes ajustarlo según necesites.
   Color color = Colors.white;
-  late Vector2 targetPosition;
-  double interpolationSpeed =
-      5.0; // Controla qué tan rápido se mueve hacia targetPosition
+  final double opacity = 0.5;
 
-  Opponent({
-    required this.id,
-    required this.color,
-    required Vector2 initialPosition,
-    Vector2? targetPosition,
-  }) : super(
-            position: initialPosition,
-            size: Vector2.all(50)); // Usa initialPosition
+  Opponent({required this.id, required Color color})
+      : super(position: Vector2.all(100), size: Vector2.all(50)) {
+    this.color = color;
+  }
 
   @override
   Future<void> onLoad() async {
+    super.onLoad();
+    // Obtén el path de la imagen basado en el color
     String imagePath = _getImagePathForColor(color);
     animation = await SpriteAnimation.load(
       imagePath,
@@ -29,38 +26,25 @@ class Opponent extends SpriteAnimationComponent {
         stepTime: 0.12,
       ),
     );
+
+    // Aplica la opacidad al pintar el componente
+    paint = Paint()..color = color.withOpacity(opacity);
   }
 
   String _getImagePathForColor(Color color) {
-    // Asumiendo que 'color' es el Color de Flutter y que mapeas estos a tus colores definidos
+    // Asignación del path de la imagen basada en el color proporcionado.
+    // Esto es un ejemplo; necesitas ajustar los nombres de los archivos según tus necesidades.
     if (color == Colors.red) {
-      // Vermell
       return 'embervermell.png';
     } else if (color == Colors.blue) {
-      // Blau
       return 'emberblau.png';
     } else if (color == Colors.orange) {
-      // Taronja
       return 'embertaronja.png';
     } else if (color == Colors.green) {
-      // Verd
       return 'emberverd.png';
     } else {
-      return 'ember.png'; // Un color por defecto si no se reconoce el color
-    }
-  }
-
-  // Tu implementación de _getImagePathForColor...
-
-  @override
-  void update(double dt) {
-    super.update(dt);
-
-    // Interpola la posición hacia targetPosition
-    final distance = targetPosition - position;
-    if (distance.length > 1.0) {
-      // Verifica que la distancia sea suficiente para moverse
-      position += distance.normalized() * interpolationSpeed * dt;
+      // Un color por defecto si no se reconoce el color
+      return 'ember.png';
     }
   }
 }

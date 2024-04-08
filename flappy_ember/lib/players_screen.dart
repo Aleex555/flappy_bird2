@@ -1,11 +1,15 @@
 import 'package:flame/game.dart';
 import 'package:flappy_ember/appdata.dart';
-import 'package:flappy_ember/game.dart'; // Asegúrate de que este importe apunta a tu juego correctamente
+import 'package:flappy_ember/game.dart';
+import 'package:flappy_ember/ranking.dart';
+import 'package:flappy_ember/setupscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class PlayersScreen extends StatefulWidget {
-  const PlayersScreen({super.key});
+  final FlappyEmberGame game;
+
+  const PlayersScreen({super.key, required this.game});
 
   @override
   _PlayersScreenState createState() => _PlayersScreenState();
@@ -13,22 +17,87 @@ class PlayersScreen extends StatefulWidget {
 
 class _PlayersScreenState extends State<PlayersScreen> {
   @override
+  void initState() {
+    super.initState();
+    widget.game.onPlayersUpdated = _updateConnectedPlayers;
+    widget.game.onTiempo = _tiempo;
+    widget.game.onGameStart = () {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => GameWidget(
+            game: widget.game,
+            overlayBuilderMap: {
+              'rankingOverlay': (context, _) => RankingScreen(game: widget.game),
+            },
+          ),
+        ),
+      );
+    };
+  }
+
+  @override
   Widget build(BuildContext context) {
+    AppData appFata = Provider.of<AppData>(context);
     return Scaffold(
       body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Sala de espera',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              'Tiempo restante: ${appFata.tiempo} segundos',
+              style: TextStyle(fontSize: 20),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              children: const [
+                Expanded(
+                  flex: 2,
+                  child: Text('Nombre',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                ),
+                Expanded(
+                  child: Text('Color',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                ),
+              ],
+            ),
+          ),
           Expanded(
             child: Consumer<AppData>(
               builder: (context, appData, child) {
                 return ListView.builder(
                   itemCount: appData.connectedPlayers.length,
                   itemBuilder: (context, index) {
-                    var playerName =
-                        appData.connectedPlayers[index]['name'] as String;
-                    return Center(
-                      child: ListTile(
-                        title: Text(playerName, textAlign: TextAlign.center),
+                    var playerName = appData.connectedPlayers[index]['name'] as String;
+                    var playerColor = appData.connectedPlayers[index]['color'] as String;
+                    Color? color = _colorFromName(playerColor); // Convierte el String a Color.
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Text(playerName, style: TextStyle(fontSize: 18)),
+                          ),
+                          Expanded(
+                            child: Container(
+                              width: 30,
+                              height: 30,
+                              color: color,
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -42,7 +111,11 @@ class _PlayersScreenState extends State<PlayersScreen> {
               icon: Icon(Icons.exit_to_app),
               label: Text('Desconectar'),
               onPressed: () {
-                Navigator.pop(context);
+                widget.game.disconnect();
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => SetupScreen()),
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -53,5 +126,32 @@ class _PlayersScreenState extends State<PlayersScreen> {
         ],
       ),
     );
+  }
+
+  void _updateConnectedPlayers(List<dynamic> connectedPlayers) {
+    if (mounted) {
+      Provider.of<AppData>(context, listen: false).setUsuarios(connectedPlayers);
+    }
+  }
+
+  void _tiempo(int tiempo) {
+    if (mounted) {
+      Provider.of<AppData>(context, listen: false).setTiempo(tiempo);
+    }
+  }
+
+  Color? _colorFromName(String name) {
+    switch (name) {
+      case 'vermell':
+        return Colors.red;
+      case 'verd':
+        return Colors.green;
+      case 'taronja':
+        return Colors.orange;
+      case 'blau':
+        return Colors.blue;
+      default:
+        return null;
+    }
   }
 }

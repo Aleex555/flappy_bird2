@@ -1,8 +1,12 @@
 // Importaciones necesarias
+// ignore_for_file: avoid_dynamic_calls
+
 import 'dart:convert';
+import 'dart:math';
 import 'dart:ui';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flame/extensions.dart';
 import 'package:flame/game.dart';
 import 'package:flame/input.dart';
 import 'package:flame/src/components/core/component.dart';
@@ -11,9 +15,11 @@ import 'package:flappy_ember/box_stack.dart';
 import 'package:flappy_ember/ground.dart';
 import 'package:flappy_ember/opponent.dart';
 import 'package:flappy_ember/player.dart';
+import 'package:flappy_ember/ranking.dart';
 import 'package:flappy_ember/sky.dart';
 import 'package:flappy_ember/websockets_handler.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class FlappyEmberGame extends FlameGame
     with HasCollisionDetection, TapDetector {
@@ -30,7 +36,16 @@ class FlappyEmberGame extends FlameGame
   double _timeSinceLastUpdate = 0;
   final double updateInterval = 0.5;
   List<dynamic> connectedPlayers = [];
+  List<dynamic> lostPlayers = [];
   Map<String, Opponent> opponents = {};
+  Function(List<dynamic> connectedPlayers)? onPlayersUpdated;
+  Function(List<dynamic> lostPlayers)? onPlayersUpdatedlost;
+  Function(int tiempo)? onTiempo;
+  late String name;
+  int tiempo = 30;
+  bool isBottom = false;
+
+  int stackHeight = Random().nextInt(1 + 1);
 
   @override
   Future<void> onLoad() async {
@@ -38,6 +53,7 @@ class FlappyEmberGame extends FlameGame
     add(Sky());
     add(Ground());
     add(ScreenHitbox());
+    _sendSize();
   }
 
   @override
@@ -53,11 +69,16 @@ class FlappyEmberGame extends FlameGame
       add(BoxStack());
       _timeSinceBox = 0;
     }
-    // Envía la posición del jugador al servidor cada updateInterval segundos
-    _timeSinceLastUpdate += dt;
-    if (_timeSinceLastUpdate >= updateInterval) {
-      _sendPlayerPosition();
-      _timeSinceLastUpdate = 0;
+    if (_player.perdido == false) {
+      _timeSinceLastUpdate += dt;
+      if (_timeSinceLastUpdate >= updateInterval) {
+        _sendPlayerPosition();
+        _timeSinceLastUpdate = 0;
+      }
+    } else {
+      _sendPlayerLose();
+      connectedPlayers.removeWhere(
+          (player) => player['id'] == _webSocketsHandler.mySocketId);
     }
   }
 
@@ -71,10 +92,8 @@ class FlappyEmberGame extends FlameGame
 
     switch (data['type']) {
       case 'welcome':
-        _webSocketsHandler.sendMessage(jsonEncode({
-          'type': 'init',
-          'name': "sghdjfhg",
-        }));
+        _webSocketsHandler
+            .sendMessage(jsonEncode({'type': 'init', 'name': name}));
         print("Welcome: ${data['value']}");
         String assignedColorHex = data['color'] as String;
         Color assignedColor;
@@ -89,43 +108,89 @@ class FlappyEmberGame extends FlameGame
         }
         // Cambiar el color del jugador
         _player.changeColor(assignedColor);
+        _webSocketsHandler.mySocketId = data['id'].toString();
         break;
       case 'data':
+        Map<String, dynamic> box = data['box'] as Map<String, dynamic>;
+
+        isBottom = box['isBottom'] as bool;
+        stackHeight = box['stackHeight'] as int;
         List<dynamic> opponentsData = data['opponents'] as List<dynamic>;
         for (var oppData in opponentsData) {
-          final id = oppData['id'].toString();
-          if (id == _webSocketsHandler.mySocketId) {
-            // Ignora los datos si pertenecen al jugador actual
-            continue;
-          }
-          final x = oppData['x'] as double;
-          final y = oppData['y'] as double;
+          final id = oppData['id'];
 
-          // Si el oponente ya existe, actualiza su posición.
-          // De lo contrario, crea un nuevo Opponent y lo agrega al juego.
+          if (id == _webSocketsHandler.mySocketId) continue;
           if (opponents.containsKey(id)) {
             final opponent = opponents[id]!;
-            opponent.targetPosition = Vector2(x, y);
-          } else {
-            // Aquí, necesitas decidir cómo obtener el color u otras propiedades del oponente.
-            // Para este ejemplo, simplemente se utiliza un color predeterminado.
-            Color? color1 = _colorFromName(oppData['color'] as String);
-
-            final newOpponent = Opponent(
-              id: id,
-              color: color1!,
-              initialPosition: Vector2(0, 0),
-              targetPosition: Vector2(0, 0),
-            );
-            opponents[id] = newOpponent;
-            add(newOpponent);
+            double? clientX = -100.0;
+            double? clientY = -100.0;
+            var x = oppData['x'];
+            if (x != null) {
+              clientX =
+                  (x is num) ? x.toDouble() : double.tryParse(x.toString());
+            }
+            var y = oppData['y'];
+            if (y != null) {
+              clientY =
+                  (y is num) ? y.toDouble() : double.tryParse(y.toString());
+            }
+            opponent.position = Vector2(clientX!, clientY!);
           }
         }
         break;
       case 'playerListUpdate':
+        connectedPlayers = (data['connectedPlayers'] as List)
+            .map((e) => e as Map<String, dynamic>)
+            .toList();
+        onPlayersUpdated?.call(connectedPlayers);
+
+        print("Updated Players List: $connectedPlayers");
+        for (var playerData in connectedPlayers) {
+          final id = playerData['id'].toString();
+          if (id == _webSocketsHandler.mySocketId) continue;
+          final colorName = playerData['color'] as String;
+          final color = _colorFromName(colorName) ?? Colors.grey;
+
+          if (!opponents.containsKey(id)) {
+            final newOpponent = Opponent(id: id, color: color)
+              ..position = Vector2(0, 0);
+            opponents[id] = newOpponent;
+            add(newOpponent);
+          } else {
+            final existingOpponent = opponents[id]!;
+            existingOpponent.color = color;
+          }
+        }
+        opponents.keys
+            .where(
+                (id) => !connectedPlayers.any((p) => p['id'].toString() == id))
+            .toList()
+            .forEach((id) {
+          opponents.remove(id);
+        });
+
         break;
       case "gameStart":
         onGameStart?.call();
+        break;
+
+      case "playerLostUpdate":
+        lostPlayers = (data['lost'] as List)
+            .map((e) => e as Map<String, dynamic>)
+            .toList();
+        onPlayersUpdatedlost?.call(lostPlayers);
+        for (var lostPlayerData in lostPlayers) {
+          final lostPlayerId = lostPlayerData['id'].toString();
+          if (opponents.containsKey(lostPlayerId)) {
+            final opponentToRemove = opponents.remove(lostPlayerId);
+            remove(opponentToRemove!);
+          }
+        }
+        break;
+
+      case "countdown":
+        tiempo = data['value'] as int;
+        onTiempo?.call(tiempo);
         break;
     }
   }
@@ -134,7 +199,7 @@ class FlappyEmberGame extends FlameGame
     switch (name) {
       case 'vermell':
         return Colors.red;
-      case 'verd  ':
+      case 'verd':
         return Colors.green;
       case 'taronja':
         return Colors.orange;
@@ -153,13 +218,33 @@ class FlappyEmberGame extends FlameGame
     }));
   }
 
+  void _sendSize() {
+    _webSocketsHandler.sendMessage(jsonEncode({'type': 'size', 'x': size.y}));
+  }
+
+  void _sendPlayerLose() {
+    _webSocketsHandler.sendMessage(jsonEncode({
+      'type': 'perdido',
+      'id': _webSocketsHandler.mySocketId,
+      'name': name
+    }));
+  }
+
+  void _sendBoxes() {
+    _webSocketsHandler.sendMessage(jsonEncode({
+      'type': 'perdido',
+      'id': _webSocketsHandler.mySocketId,
+      'name': name
+    }));
+  }
+
   void disconnect() {
     _webSocketsHandler.disconnectFromServer();
   }
 
   @override
   void onRemove() {
-    _webSocketsHandler.disconnectFromServer();
     super.onRemove();
+    print("Player ha sido eliminado.");
   }
 }

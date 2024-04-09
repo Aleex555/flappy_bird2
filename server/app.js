@@ -30,6 +30,9 @@
   let gameStarted = false;
   let playersLost = [];
   let size = 1;
+  let isBottom = false;
+  let maxStackHeight = 1;
+  let stackHeight = 1;
 
 
   // Publish static files from 'public' folder
@@ -123,7 +126,11 @@
         break;
       case "size":
         size = obj.x;
-        console.log(size);
+        const boxHeight = 50; // Asumiendo que tienes una altura de caja definida, como en Dart.
+        isBottom = Math.random() < 0.5; // Equivalente a _rng.nextBool() en Dart.
+        maxStackHeight = Math.floor(size / boxHeight) - 2;
+        stackHeight = Math.floor(Math.random() * (maxStackHeight + 1));
+        
         break;
         case 'perdido':
     if (!playersLost.find(player => player.id === id)) {
@@ -177,19 +184,11 @@
   gLoop.init();
   gLoop.run = (fps) => {
     let clientsData = ws.getClientsData();
-    
-    const boxHeight = 50; // Asumiendo que tienes una altura de caja definida, como en Dart.
-    let isBottom = Math.random() < 0.5; // Equivalente a _rng.nextBool() en Dart.
-    let maxStackHeight = Math.floor(size / boxHeight) - 2;
-    let stackHeight = Math.floor(Math.random() * (maxStackHeight + 1));
     let dataToSend = {
       type: "boxesData",
       isBottom: isBottom,
       stackHeight: stackHeight,
     };
-    
-
-
     ws.broadcast(JSON.stringify({ type: "data", opponents: clientsData ,box: dataToSend}));
   }
 

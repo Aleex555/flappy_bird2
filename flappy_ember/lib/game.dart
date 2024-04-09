@@ -66,6 +66,7 @@ class FlappyEmberGame extends FlameGame
     super.update(dt);
     _timeSinceBox += dt;
     if (_timeSinceBox > _boxInterval) {
+      _sendSize();
       add(BoxStack());
       _timeSinceBox = 0;
     }

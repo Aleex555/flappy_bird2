@@ -14,6 +14,7 @@ void main() {
           visualDensity: VisualDensity.adaptivePlatformDensity,
         ),
         home: SetupScreen(),
+        debugShowCheckedModeBanner: false,
       ),
     ),
   );

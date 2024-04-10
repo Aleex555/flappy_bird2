@@ -126,8 +126,8 @@
         break;
       case "size":
         size = obj.x;
-        const boxHeight = 50; // Asumiendo que tienes una altura de caja definida, como en Dart.
-        isBottom = Math.random() < 0.5; // Equivalente a _rng.nextBool() en Dart.
+        const boxHeight = 50;
+        isBottom = Math.random() < 0.5; 
         maxStackHeight = Math.floor(size / boxHeight) - 2;
         stackHeight = Math.floor(Math.random() * (maxStackHeight + 1));
         
@@ -190,6 +190,7 @@
       stackHeight: stackHeight,
     };
     ws.broadcast(JSON.stringify({ type: "data", opponents: clientsData ,box: dataToSend}));
+    broadcastPlayersLostUpdate();
   }
 
   function broadcastConnectedPlayers() {

@@ -68,8 +68,7 @@ class Player extends SpriteAnimationComponent
   void onCollisionStart(Set<Vector2> _, PositionComponent other) {
     super.onCollisionStart(_, other);
     perdido = true;
-    gameRef.pauseEngine();
-    onLose();
+    
   }
 
   void fly() {

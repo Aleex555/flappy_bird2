@@ -45,7 +45,7 @@ class FlappyEmberGame extends FlameGame
   int tiempo = 30;
   bool isBottom = false;
 
-  int stackHeight = Random().nextInt(1 + 1);
+  int stackHeight = 1;
 
   @override
   Future<void> onLoad() async {
@@ -77,10 +77,17 @@ class FlappyEmberGame extends FlameGame
         _timeSinceLastUpdate = 0;
       }
     } else {
-      _sendPlayerLose();
+      if (_player.parent != null) {
+        remove(_player);
+        _sendPlayerLose();
       connectedPlayers.removeWhere(
           (player) => player['id'] == _webSocketsHandler.mySocketId);
+      }
+      if(opponents.isEmpty){
+        overlays.add('rankingOverlay');
+        }
     }
+      
   }
 
   void _initializeWebSocket() {
@@ -188,7 +195,6 @@ class FlappyEmberGame extends FlameGame
           }
         }
         break;
-
       case "countdown":
         tiempo = data['value'] as int;
         onTiempo?.call(tiempo);
